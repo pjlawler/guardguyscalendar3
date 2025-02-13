@@ -9,9 +9,13 @@ import SwiftUI
 
 @main
 struct GuardGuysV3App: App {
+    
+    @StateObject var gloabalManager = GlobalManager()
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(gloabalManager)
         }
     }
 }
