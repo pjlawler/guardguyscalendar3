@@ -9,6 +9,108 @@
 
 import SwiftUI
 
+class ApproachDownloader: NSObject {
+    
+    typealias DownloadCompletionHandler = (Result<URL, Error>)->()
+    typealias DownloadProgressHandler = (Double)->()
+    
+    private var progressHandler: DownloadProgressHandler?
+    private var completionHandler: DownloadCompletionHandler?
+    private var dataTask: URLSessionDownloadTask?
+    private var observation: NSKeyValueObservation?
+    private var defaultError: NSError = .init(domain: "DownloadError",
+                                              code: 0,
+                                              userInfo: [NSLocalizedDescriptionKey: "Error downloading the file!"])
+    private var temporaryFileURL: URL?
+    
+    let fileManager = FileManager.default
+    
+    func downloadFile(fromURL url: URL, withProgress progress: DownloadProgressHandler?, fileLocation completion: DownloadCompletionHandler?) {
+        
+        self.progressHandler = progress
+        self.completionHandler = completion
+        self.temporaryFileURL = nil
+        
+        self.dataTask = URLSession.shared.downloadTask(with: url, completionHandler: { location, response, error in
+            
+            self.observation?.invalidate()
+            guard let location = location else {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    self.completionHandler?(.failure(error ?? self.defaultError))
+                }
+                return
+            }
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                self.temporaryFileURL = location
+                self.completionHandler?(.success(location))
+            }
+        })
+        
+        dataTask?.resume()
+        observation = dataTask?.progress.observe(\.fractionCompleted) { progress, _ in
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                let progress = Double(Int(progress.fractionCompleted * 1000)) / 10
+                self.progressHandler?(progress)
+            }
+        }
+    }
+    func cancelDownload() {
+        self.dataTask?.cancel()
+        self.dataTask = nil
+        self.observation?.invalidate()
+    }
+    func saveTempFileAs(filename name: String) throws -> URL? {
+        do {
+            guard let tempURL = temporaryFileURL else { throw NSError(domain: "FileManagerError", code: 1, userInfo: nil) }
+            let path = try fileManager.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+            let destURL = path.appendingPathComponent(name)
+            if fileManager.fileExists(atPath: destURL.path) { try fileManager.removeItem(at: destURL) }
+            try fileManager.moveItem(at: tempURL, to: destURL)
+            return destURL
+        }
+        catch {
+            throw error
+        }
+    }
+    func convertToData() throws -> Data? {
+        do {
+            guard let tempURL = temporaryFileURL else { throw NSError(domain: "FileManagerError", code: 1, userInfo: nil) }
+            let data = try Data(contentsOf: tempURL)
+            try fileManager.removeItem(at: tempURL)
+            return data
+        }
+        catch {
+            throw error
+        }
+    }
+}
+
+extension ApproachDownloader: URLSessionDownloadDelegate {
+    
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
+                    didWriteData bytesWritten: Int64,
+                    totalBytesWritten: Int64,
+                    totalBytesExpectedToWrite: Int64) {
+        let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+        DispatchQueue.main.async { self.progressHandler?(progress) }
+    }
+    func urlSession(_ session: URLSession,
+                    downloadTask: URLSessionDownloadTask,
+                    didFinishDownloadingTo location: URL) {
+        DispatchQueue.main.async { self.completionHandler?(.success(location)) }
+    }
+    func urlSession(_ session: URLSession,
+                    task: URLSessionTask,
+                    didCompleteWithError error: Error?) {
+        guard let error = error else { return }
+        DispatchQueue.main.async { self.completionHandler?(.failure(error)) }
+    }
+}
+
+
 class NetworkManager: NSObject {
     
     @AppStorage("loggedInState") var isLoggedIn = false
@@ -20,11 +122,6 @@ class NetworkManager: NSObject {
     static let shared = NetworkManager()
     
     private override init() {}
-    
-    private var progressHandler: ((Double)->())?
-    private var completionHandler: ((Result<URL, Error>)->())?
-    var dataTask: URLSessionDownloadTask?
-    var observation: NSKeyValueObservation?
     
     private func urlParameters(params: [String:Any]?) -> String {
         guard params != nil && params!.count > 0 else { return "" }
@@ -93,86 +190,9 @@ class NetworkManager: NSObject {
                           userInfo: [NSLocalizedDescriptionKey: error.localizedDescription])
         }
     }
+    
+}
 
-}
-extension NetworkManager: URLSessionDownloadDelegate {
-    
-    
-    
-    func downloadFile(_ requestInfo: RequestType,
-                      withProgress progress: @escaping (Double)->(),
-                      fileLocation completion: @escaping (Result<URL, Error>)->()) {
-        
-        self.progressHandler = progress
-        self.completionHandler = completion
-       
-        let url = URL(string: "https://examplefile.com/text/txt/1-gb-txt")!
-        
-        dataTask = URLSession.shared.downloadTask(with: url,
-                                                  completionHandler: { location, response, error in
-            self.observation?.invalidate()
-            
-            
-            if let fileURL = location {
-                DispatchQueue.main.async {
-                    self.completionHandler?(.success(fileURL))
-                }
-            } else {
-               DispatchQueue.main.async {
-                    self.completionHandler?(.failure(error ?? NSError(domain: "", code: 0, userInfo: nil)))
-                }
-            }
-        })
-       dataTask?.resume()
-        
-        observation = dataTask?.progress.observe(\.fractionCompleted) { progress, _ in
-            DispatchQueue.main.async { [self] in
-                let test = progress.fractionCompleted
-                self.progressHandler?(test)
-            }
-        }
-    }
-    
-    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
-                           didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
-        let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
-        DispatchQueue.main.async {
-            self.progressHandler?(progress)
-        }
-    }
-    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
-                           didFinishDownloadingTo location: URL) {
-        DispatchQueue.main.async {
-            self.completionHandler?(.success(location))
-        }
-    }
-    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        print("has error \(error?.localizedDescription ?? "No Error data")")
-        if let error = error {
-            DispatchQueue.main.async {
-                self.completionHandler?(.failure(error))
-            }
-        }
-        else {
-            // No client-side error; check server response
-            if let httpResponse = task.response as? HTTPURLResponse {
-                if (200...299).contains(httpResponse.statusCode) {
-                    // Success
-                    DispatchQueue.main.async {
-                        self.completionHandler?(.success(URL(fileURLWithPath: "/path/to/file")))
-                    }
-                } else {
-                    // Server-side error
-                    let serverError = NSError(domain: "ServerError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Server returned status code \(httpResponse.statusCode)"])
-                    DispatchQueue.main.async {
-                        self.completionHandler?(.failure(serverError))
-                    }
-                }
-            }
-        }
-    }
-    
-}
 public enum RequestType: RequestTypeProtocol {
     
     case getMembers
@@ -190,8 +210,8 @@ public enum RequestType: RequestTypeProtocol {
         switch self {
         case .getMembers, .addMember, .editMember, .deleteMember, .login, .getEvents, .addEvent, .editEvent, .deleteEvent:
             return URL(string: "https://guardguys.herokuapp.com")!
-            case .largeFileTest:
-            return URL(string: "https://examplefile.com")!
+        case .largeFileTest:
+            return URL(string: "https://files.testfile.org/PDF/200MB-TESTFILE.ORG.pdf")!
         }
         
         
@@ -224,7 +244,7 @@ public enum RequestType: RequestTypeProtocol {
         case let .deleteEvent(id):
             return "/api/events/\(id)"
         case .largeFileTest:
-            return "/document/pdf/200-mb-pdf"
+            return "/PDF/200MB-TESTFILE.ORG.pdf"
         }
     }
     public var method: MethodTypes {
@@ -365,7 +385,7 @@ public struct SubmitEvent {
 
 class DataDownloader {
     
-
+    
     typealias completionClosure = ((Bool) ->Void)
     typealias progressClosure = ((Double)->Void)
     
@@ -388,11 +408,11 @@ class DataDownloader {
         self.dataTask = nil
     }
     
-//    func deleteDownload(_ resource: ResourcePublicationModel) {
-//        ResourceDataManager.shared.deleteResourceItem(uuid: resource.id) { _ in
-//            print("deleted")
-//        }
-//    }
+    //    func deleteDownload(_ resource: ResourcePublicationModel) {
+    //        ResourceDataManager.shared.deleteResourceItem(uuid: resource.id) { _ in
+    //            print("deleted")
+    //        }
+    //    }
     
     func storeResourceToCoreData(downloadUrl: URL, progress: @escaping (Double)->(), success: @escaping (Bool)->()) {
         
@@ -408,13 +428,13 @@ class DataDownloader {
                 return
             }
             
-//            DispatchQueue.main.async {
-//                let item = self.item.storeItem
-//                ApproachFileSystemManager.shared.moveDownloadedFileTo(uuid: item.id, currentLocation: location)
-//                ResourceDataManager.shared.storeResourceItem(item: item) { error in
-//                    self.downloadComplete = true
-//                }
-//            }
+            //            DispatchQueue.main.async {
+            //                let item = self.item.storeItem
+            //                ApproachFileSystemManager.shared.moveDownloadedFileTo(uuid: item.id, currentLocation: location)
+            //                ResourceDataManager.shared.storeResourceItem(item: item) { error in
+            //                    self.downloadComplete = true
+            //                }
+            //            }
         }
         dataTask?.resume()
         

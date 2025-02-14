@@ -34,6 +34,9 @@ struct WeekView: View {
                     .onChange(of: viewModel.selectedDate) { _, _ in
                         viewModel.loadWeekIfNeeded()
                     }
+                    .refreshable {
+                        viewModel.loadEventsForWeek(for: viewModel.selectedDate)
+                    }
             }
             
         }

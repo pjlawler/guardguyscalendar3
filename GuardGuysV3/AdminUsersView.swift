@@ -67,6 +67,9 @@ struct AdminUsersView: View {
                 }
             }
             .onAppear { viewModel.loadUsers() }
+            .refreshable {
+                viewModel.loadUsers()
+            }
         }
         // Present the add/edit user sheet.
         .sheet(isPresented: $viewModel.showUserDetails) {
