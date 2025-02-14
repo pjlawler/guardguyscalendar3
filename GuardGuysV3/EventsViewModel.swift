@@ -3,14 +3,40 @@ import Combine
 
 final class EventsViewModel: ObservableObject {
     
+    init() {
+        self.loadUsers()
+    }
+    
+    
     @Published var eventsForWeek: [ScheduleEvent] = []
     @Published var isLoading: Bool = false
     @Published var users: [UserData] = []
+    @Published var selectedDate: Date = Date()
+    @Published var currentWeekStart: Date?
     
     let network = NetworkManager.shared
     
     var selectedEvent: ScheduleEvent? = nil
+    var groupedEvents: [Date: [ScheduleEvent]] {
+        let calendar = Calendar.current
+        let groups = Dictionary(grouping: self.eventsForWeek) { event in
+            guard let eventDate = event.eventDate else { return Date.distantPast }
+            return calendar.startOfDay(for: eventDate)
+        }
+        return groups
+    }
     
+    var sortedDates: [Date] {
+        groupedEvents.keys.sorted()
+    }
+    
+     func loadWeekIfNeeded() {
+         let weekStart = selectedDate.startOfWeek()
+         if self.currentWeekStart == nil || !Calendar.current.isDate(weekStart, inSameDayAs: self.currentWeekStart!) {
+             self.currentWeekStart = weekStart
+             self.loadEventsForWeek(for: weekStart)
+         }
+     }
     func loadEventsForWeek(for weekOf: Date) {
         self.isLoading = true
         network.makeApiRequestFor(.getEvents(date: weekOf.startOfWeek())) { result in
@@ -54,6 +80,15 @@ final class EventsViewModel: ObservableObject {
                 self.users = []
                 print("Error loading users: \(error)")
             }
+        }
+    }
+    
+
+    func deleteItems(indexSet: IndexSet) {
+        let eventsForDay = events(for: self.selectedDate)
+        indexSet.forEach { index in
+            let event = eventsForDay[index]
+            deleteEvent(event)
         }
     }
     

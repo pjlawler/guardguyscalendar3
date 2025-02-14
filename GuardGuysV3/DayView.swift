@@ -1,119 +1,81 @@
 import SwiftUI
 
 struct DayView: View {
-    @State private var selectedDate: Date = Date()
-    
+   
     @ObservedObject var viewModel: EventsViewModel
-    
-    @State private var showingAddEvent = false
-    @State private var currentWeekStart: Date?
-    @State private var selectedEvent: ScheduleEvent? = nil
+    @State var showingAddEvent = false
     
     var body: some View {
         NavigationStack {
             VStack {
-                dayNavigationControlBar
+                DateNavigator(viewModel: viewModel, displayModel: .day)
                 eventsList
-               .navigationTitle("Day View")
+               .navigationTitle("Events for Day")
+               .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarLeading) {
-                        Button { selectedDate = Date() } label: {
+                        Button { viewModel.selectedDate = Date() } label: {
                             Text("Today")
-                        }.disabled(selectedDate.toString() == Date().toString())
+                        }.disabled(viewModel.selectedDate.toString() == Date().toString())
                     }
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        Button { showingAddEvent.toggle()
+                        Button { self.showingAddEvent.toggle()
                         } label: { Image(systemName: "plus") }
                     }
                 }
-                .sheet(isPresented: $showingAddEvent) {
-                    AddEventView(viewModel: viewModel, defaultDate: selectedDate, event: viewModel.selectedEvent)
+                .sheet(isPresented:$showingAddEvent) {
+                    AddEventView(viewModel: viewModel, defaultDate: viewModel.selectedDate, event: viewModel.selectedEvent)
                         .onDisappear { viewModel.selectedEvent = nil }
                 }
                 .onAppear {
-                    loadWeekIfNeeded()
+                    viewModel.loadWeekIfNeeded()
                 }
-                .onChange(of: selectedDate) { _, _ in
-                    loadWeekIfNeeded()
+                .onChange(of: viewModel.selectedDate) { _, _ in
+                    viewModel.loadWeekIfNeeded()
                 }
             }
         }
     }
     
-    private var dayNavigationControlBar: some View {
-        HStack {
-            Button(action: {
-                if let newDate = Calendar.current.date(byAdding: .day, value: -1, to: selectedDate) {
-                    selectedDate = newDate
-                }
-            }) {
-                Image(systemName: "chevron.left")
-            }
-            Spacer()
-            Text(selectedDate, format: .dateTime
-                .weekday(.abbreviated)
-                .month(.abbreviated)
-                .day()
-                .year())
-                .font(.headline)
-
-            Spacer()
-            Button(action: {
-                if let newDate = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) {
-                    selectedDate = newDate
-                }
-            }) {
-                Image(systemName: "chevron.right")
-            }
-        }.padding()
+    func handleItemTapped(event: ScheduleEvent) {
+        viewModel.selectedEvent = event
+        self.showingAddEvent = true
     }
+    
+
     private var eventsList: some View {
         
         ZStack {
             
-            let dayEvents = viewModel.events(for: selectedDate).sorted(by: {$0.eventDate ?? Date() < $1.eventDate ?? Date()})
+            let dayEvents = viewModel.events(for: viewModel.selectedDate).sorted(by: {$0.eventDate ?? Date() < $1.eventDate ?? Date()})
             
             ScrollViewReader { proxy in
-                
                 List {
                     ForEach(dayEvents, id:\.id) { event in
-                        EventRowView(event: event) {
-                            viewModel.selectedEvent = event
-                            self.showingAddEvent = true
-                        }.id(event.id)
+                        EventItemCell(event: event) { self.handleItemTapped(event: event) }.id(event.id)
                     }
-                    .onDelete { indexSet in
-                        let eventsForDay = viewModel.events(for: selectedDate)
-                        indexSet.forEach { index in
-                            let event = eventsForDay[index]
-                            viewModel.deleteEvent(event)
-                        }
-                    }
+                    .onDelete { viewModel.deleteItems(indexSet: $0) }
                 }
                 .overlay(alignment: .top) {
-                    if dayEvents.isEmpty {
-                        Text("No Events Scheduled")
-                            .font(.headline)
-                            .padding(.top, 30)
-                    }
-                    if viewModel.isLoading {
-                        ZStack {
-                            Color.clear
-                            ProgressView()
-                        }.background(.ultraThinMaterial)
-                    }
+                    if dayEvents.isEmpty { emptyState }
+                    if viewModel.isLoading { loadingScreen }
                 }
-                .onChange(of: selectedDate) { _, _ in
+                .onChange(of: viewModel.selectedDate) { _, _ in
                     proxy.scrollTo(dayEvents.first?.id, anchor: .top)
                 }
             }
         }
     }
-    private func loadWeekIfNeeded() {
-        let weekStart = selectedDate.startOfWeek()
-        if currentWeekStart == nil || !Calendar.current.isDate(weekStart, inSameDayAs: currentWeekStart!) {
-            currentWeekStart = weekStart
-            viewModel.loadEventsForWeek(for: weekStart)
-        }
+    private var emptyState: some View {
+        Text("No Events Scheduled")
+            .font(.headline)
+            .padding(.top, 30)
     }
+    private var loadingScreen: some View {
+        ZStack {
+            Color.clear
+            ProgressView()
+        }.background(.ultraThinMaterial)
+    }
+   
 }

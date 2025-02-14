@@ -17,7 +17,7 @@ public extension Date {
     }
     func timeString() -> String {
         let formatter = DateFormatter()
-           formatter.dateFormat = "hh:mm"  // "HH" for 24-hour format; use "hh" for 12-hour format.
+           formatter.dateFormat = "hh:mm a"  // "HH" for 24-hour format; use "hh" for 12-hour format.
            return formatter.string(from: self)
     }
     func adding(microseconds: Int64) -> Date? {

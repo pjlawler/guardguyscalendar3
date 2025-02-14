@@ -5,7 +5,6 @@ struct AddEventView: View {
     @ObservedObject var viewModel: EventsViewModel
     
     // State for the user picker.
-    @State private var users: [UserData] = []
     @State private var selectedUserId: Int? = nil
     
     // State properties for the event.
@@ -15,13 +14,12 @@ struct AddEventView: View {
     @State private var eventDuration: Int64 = 3600  // 1 hour by default.
     @State private var onsite: Bool = false
     
-    // Optional event: if non-nil, we are editing an existing event.
     let eventToEdit: ScheduleEvent?
     
     init(viewModel: EventsViewModel, defaultDate: Date, event: ScheduleEvent? = nil) {
         self.viewModel = viewModel
         self.eventToEdit = event
-        
+    
         if let event = event {
             // Editing an existing event: prepopulate the form with its data.
             _eventName = State(initialValue: event.event)
@@ -45,7 +43,7 @@ struct AddEventView: View {
         NavigationStack {
             Form {
                 Section(header: Text("Event Info")) {
-                    TextEditor(text: $eventName)
+                    TextField("Event", text: $eventName)
                         .frame(minHeight: 50, maxHeight: .infinity, alignment: .top)
                     DatePicker("Date & Time", selection: $eventDate)
                     Stepper(value: $eventDuration, in: 60_000...8_640_000, step: 60_000) {
@@ -67,6 +65,7 @@ struct AddEventView: View {
                 }
             }
             .navigationTitle(eventToEdit == nil ? "Add Event" : "Edit Event")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {

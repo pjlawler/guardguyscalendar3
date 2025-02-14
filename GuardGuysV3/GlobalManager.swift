@@ -16,6 +16,7 @@ final class GlobalManager: ObservableObject {
     @AppStorage("loggedInUserId") var userId = 0
     @AppStorage("lastEventDownload") var lastDate = ""
     
+    let network = NetworkManager.shared
     
     func updateLogin(_ user: UserData? = nil) {
         self.isAdmin = user?.isAdmin ?? false
@@ -24,7 +25,18 @@ final class GlobalManager: ObservableObject {
         self.isLoggedIn = user != nil ? true : false
     }
     
-    
+    func checkuserCredentials() {
+        network.makeApiRequestFor(.getMembers) { result in
+            switch result {
+            case .success(let data):
+                let users = try? JSONDecoder().decode([UserData].self, from: data) // gets the saved users from the database
+                let currentUser = users?.first(where: { $0.id == self.userId }) // finds the logged in user's credentials
+                self.updateLogin(currentUser) // updates their credentials or logs out if not in the database
+            case .failure(let error):
+                print("Error loading users: \(error)")
+            }
+        }
+    }
 
     
     

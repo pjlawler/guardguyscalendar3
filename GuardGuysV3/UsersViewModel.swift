@@ -9,8 +9,7 @@
 import SwiftUI
 
 final class UsersViewModel: ObservableObject {
-    
-    @Published var users: [UserData] = []
+  
     @Published var isLoading = false
     @Published var showUserDetails: Bool = false
     @Published var selectedUser: UserData?
@@ -18,11 +17,13 @@ final class UsersViewModel: ObservableObject {
     @AppStorage("loggedInUserId") var userId = 0
     @AppStorage("loggedInAsAdmin") var isAdmin = false
     
-    let network = NetworkManager.shared
+    @Published var users: [UserData] = []
     
     var usersToDisplay: [UserData] {
-        self.users.filter { self.isAdmin ? false : self.isAdmin ? true : $0.id == self.userId }
+        self.users.filter { self.isAdmin ? true : $0.id == self.userId }
     }
+   
+    let network = NetworkManager.shared
     
     func loadUsers() {
         

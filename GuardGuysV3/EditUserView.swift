@@ -25,7 +25,6 @@ struct EditUserView: View {
         user?.id == globalManager.userId
     }
 
-    
     init(viewModel: UsersViewModel, user: UserData? = nil) {
         self.viewModel = viewModel
         self.user = user
@@ -63,10 +62,9 @@ struct EditUserView: View {
                             .disabled(usersOwnProfile)  // Prevent modifying your own admin status.
                     }
                 }
-                
-            
             }
             .navigationTitle(user == nil ? "Add User" : "Edit User")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {

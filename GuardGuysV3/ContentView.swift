@@ -8,10 +8,12 @@ import SwiftUI
 
 struct ContentView: View {
     
-    @StateObject var eventsViewModel = EventsViewModel()
     
     @Environment(\.scenePhase) var scenePhase
     @EnvironmentObject private var globalManager: GlobalManager
+    
+    @StateObject var eventsViewModel = EventsViewModel()
+    @StateObject var usersViewModel = UsersViewModel()
     
     private let network = NetworkManager.shared
    
@@ -19,39 +21,28 @@ struct ContentView: View {
         ZStack {
             switch globalManager.isLoggedIn {
             case false: LoginView()
-            case true: tabs
+            case true: tabbedView
             }
         }
         .onChange(of: scenePhase) { oldValue, newValue in
             switch (oldValue, newValue) {
             case (.inactive, .active):
                 print("checking credentials!")
-                checkuserCredentials()
+                globalManager.checkuserCredentials()
             default: break
             }
         }
     }
     
-    private var tabs: some View {
+    private var tabbedView: some View {
         TabView {
             DayView(viewModel: eventsViewModel)
                 .tabItem { Label("Day", systemImage: "calendar") }
             WeekView(viewModel: eventsViewModel)
                 .tabItem {  Label("Week", systemImage: "calendar.badge.plus") }
-            AdminUsersView()
-                .tabItem {  Label("Admin", systemImage: "person.crop.circle.badge.checkmark") }
+            AdminUsersView(viewModel: usersViewModel)
+                .tabItem {  Label("\(globalManager.isAdmin ? "Users" : "User")", systemImage: "person.crop.circle.badge.checkmark") }
         }
     }
-    private func checkuserCredentials() {
-        network.makeApiRequestFor(.getMembers) { result in
-            switch result {
-            case .success(let data):
-                let users = try? JSONDecoder().decode([UserData].self, from: data) // gets the saved users from the database
-                let currentUser = users?.first(where: { $0.id == globalManager.userId }) // finds the logged in user's credentials
-                globalManager.updateLogin(currentUser) // updates their credentials or logs out if not in the database
-            case .failure(let error):
-                print("Error loading users: \(error)")
-            }
-        }
-    }
+    
 }

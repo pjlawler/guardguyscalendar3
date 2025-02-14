@@ -32,7 +32,7 @@ public struct ScheduleEvent: Codable, Identifiable {
     var eventDate: Date? {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'SSS'Z'"
-        formatter.timeZone = TimeZone(abbreviation: "UTC")
+        formatter.timeZone = TimeZone.current
         return formatter.date(from: self.date)
     }
 

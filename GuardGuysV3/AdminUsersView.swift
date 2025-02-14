@@ -8,13 +8,8 @@
 import SwiftUI
 
 struct AdminUsersView: View {
-    
-    @ObservedObject private var viewModel: UsersViewModel
-    @EnvironmentObject private var globalManager: GlobalManager
-    
-    init() {
-        self.viewModel = UsersViewModel()
-    }
+   
+    @StateObject var viewModel: UsersViewModel
     
     var body: some View {
         Group {
@@ -56,7 +51,8 @@ struct AdminUsersView: View {
                         .background(.ultraThinMaterial)
                     }
                 }
-                .navigationTitle("Users")
+                .navigationTitle("User Management")
+                .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button {
