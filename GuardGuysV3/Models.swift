@@ -28,24 +28,20 @@ public struct ScheduleEvent: Codable, Identifiable {
     public let updatedAt: String
     public let user: UserData?
     
-    // Helper: Convert the ISO8601 string to a Date.
     var eventDate: Date? {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'SSS'Z'"
-        formatter.timeZone = TimeZone.current
+        formatter.timeZone = TimeZone(abbreviation: "UTC")
         return formatter.date(from: self.date)
     }
-
     var startDate: String? {
         eventDate?.toString()
     }
     var startTime: String? {
         eventDate?.timeString()
     }
-   
     var endTime: String? {
-        guard duration > 0 else { return nil }
-        return eventDate?.adding(microseconds: duration)?.timeString()
+        eventDate?.adding(microseconds: duration)?.timeString()
     }
     
 }

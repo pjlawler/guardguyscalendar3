@@ -31,6 +31,15 @@ public extension Date {
            return calendar.date(from: components) ?? Date()
        }
     
+    func apiString() -> String {
+        let formatter = DateFormatter()
+        
+        formatter.dateFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'SSS'Z'"
+        formatter.timeZone = TimeZone(abbreviation: "UTC")
+        
+        return formatter.string(from: self)
+    }
+    
     var nextWholeHour: Date {
             let calendar = Calendar.current
             // Get the current date’s year, month, day, and hour.

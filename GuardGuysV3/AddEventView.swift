@@ -69,21 +69,19 @@ struct AddEventView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        let isoFormatter = ISO8601DateFormatter()
-                        let dateString = isoFormatter.string(from: eventDate)
                         
                         if let event = eventToEdit {
                             // Editing an existing event.
                             let updatedEvent = ScheduleEvent(
                                 id: event.id,
-                                date: dateString,
+                                date: eventDate.apiString(),
                                 event: eventName,
                                 onsite: onsite,
                                 notes: eventNotes,
                                 duration: Int64(eventDuration),
                                 userId: selectedUserId,
                                 createdAt: event.createdAt, // Preserve original creation date.
-                                updatedAt: dateString,
+                                updatedAt: Date().apiString(),
                                 user: nil
                             )
                             viewModel.updateEvent(updatedEvent)
@@ -91,14 +89,14 @@ struct AddEventView: View {
                             // Creating a new event.
                             let newEvent = ScheduleEvent(
                                 id: 0,  // API/backend will assign a proper id.
-                                date: dateString,
+                                date: eventDate.apiString(),
                                 event: eventName,
                                 onsite: onsite,
                                 notes: eventNotes,
                                 duration: Int64(eventDuration),
                                 userId: selectedUserId,
-                                createdAt: dateString,
-                                updatedAt: dateString,
+                                createdAt: Date().apiString(),
+                                updatedAt: Date().apiString(),
                                 user: nil
                             )
                             viewModel.addEvent(newEvent)
